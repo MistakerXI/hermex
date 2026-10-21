@@ -642,7 +642,14 @@ extension BotsInboxView {
             }
             .sheet(item: Binding(get: { usesSplit ? editSelection : nil },
                                  set: { editSelection = $0 })) { selection in
-                NavigationStack { editProfile(selection) }
+                NavigationStack {
+                    editProfile(selection)
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button("Cancel") { editSelection = nil }
+                            }
+                        }
+                }
             }
             // The subscription lives while the inbox is on screen and the app is not in the
             // background; returning, refreshing and reconnecting all go through the same open().

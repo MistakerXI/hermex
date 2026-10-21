@@ -601,7 +601,13 @@ struct HermesServerHome: View {
         // keeps the saved values and focuses the password; saving signs it back in.
         .modifier(HermesUpdateSignInModifier { authManager.hermesSignInRejected(server: server) })
         // A connection the inbox's sheet saved or changed closes no screen, so the switch reads too.
-        .onChange(of: tab, readConnection)
+        // At compact width a route turning the home leaves the side it left on its root, so a
+        // later return doesn't push that side's old chat again.
+        .onChange(of: tab) {
+            readConnection()
+            guard !HermesHomeLayout.usesSplit(isHome: true, horizontalSizeClass: horizontalSizeClass) else { return }
+            if tab == .sessions { inbox.selection = BotInboxSelection() } else { sessions?.navigation.covers.bringForward() }
+        }
         // A bot route lands on the inbox, so Settings (and an Archived screen pushed from it, #1146)
         // closes first, as a Sessions list's pushed screens do when its tab goes.
         .onChange(of: pendingBotDestination, initial: true) {

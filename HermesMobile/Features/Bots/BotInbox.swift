@@ -335,6 +335,7 @@ import UIKit
         do {
             let saved = try store.load(server: server)
             if connection?.id != saved?.id {
+                selection = BotInboxSelection()
                 profiles = []; avatars = [:]; seen = [:]; rooms = []; roomCapabilities = BotRoomCapabilities(.null)
                 roomFlags = BotRoomOrganizeStore.Flags(); sectionOrder = []; setLiveStatuses([:])
             }
@@ -484,6 +485,7 @@ import UIKit
 
     /// Drops everything this phone kept for a bot that no longer exists on the host.
     private func forget(_ profile: String) async {
+        if selection.profile?.id == profile { selection = BotInboxSelection() }
         guard let connection else { return }
         seen.removeValue(forKey: profile); persistSeen()
         avatarStore.setImage(nil, connectionID: connection.id, profile: profile, revision: nil)
