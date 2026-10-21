@@ -66,8 +66,8 @@ struct HermesSessionListView: View {
     /// A share whose move failed, still claimed, until the user discards it or the alert closes (#1196).
     @State private var failedShare: HermesShareFailure?
     @State private var viewModel: SessionListViewModel
-    /// The chat, pushed screens, sheets and confirmations over the rows.
-    @State private var covers = HermesSessionListCovers()
+    /// The chat, pushed screens, sheets and confirmations over the rows, in the owner's `navigation`.
+    @State private var navigation: HermesSessionListNavigation
     @State private var actionToast = ActionToastState()
     /// The project lane the list shows; nil shows every session.
     @State private var selectedProjectID: String?
@@ -85,7 +85,7 @@ struct HermesSessionListView: View {
     /// switch back shows the last rows at once (#709), and opening the session `pendingLink` names,
     /// the new session `pendingNewChat` asks for and `pendingShare`.
     init(entry: HermesSessionListEntry, model: SessionListViewModel, home: HermesHome?,
-         initialCovers: HermesSessionListCovers = HermesSessionListCovers(),
+         navigation: HermesSessionListNavigation = HermesSessionListNavigation(),
          pendingLink: Binding<HermesSessionDestination?> = .constant(nil),
          pendingNewChat: Binding<HermesNewChatDestination?> = .constant(nil),
          pendingShare: SharedImportReservation? = nil,
@@ -93,7 +93,7 @@ struct HermesSessionListView: View {
          didRouteShare: @escaping (SharedImportReservation) -> Void = { _ in },
          didDeclineShare: @escaping (SharedImportReservation) -> Void = { _ in },
          didAbandonShare: @escaping (SharedImportReservation) -> Void = { _ in }) {
-        _covers = State(initialValue: initialCovers)
+        _navigation = State(initialValue: navigation)
         self.entry = entry
         self.home = home
         _pendingLink = pendingLink
@@ -105,6 +105,11 @@ struct HermesSessionListView: View {
         self.didAbandonShare = didAbandonShare
         _searchText = State(initialValue: entry.query)
         _viewModel = State(initialValue: model)
+    }
+
+    private var covers: HermesSessionListCovers {
+        get { navigation.covers }
+        nonmutating set { navigation.covers = newValue }
     }
 
     /// The list's view model, reading `entry`'s server through its saved connection.
@@ -135,8 +140,8 @@ struct HermesSessionListView: View {
             SessionSidebarUtilityRows(
                 viewModel: viewModel, topPadding: 10, automatedVisibility: .showAll, sectionVisibility: sectionVisibility,
                 profilesAreExpanded: .constant(false), projectsAreExpanded: $projectsAreExpanded,
-                selectedProjectID: $selectedProjectID, projectPendingDeletion: $covers.deletingProject,
-                projectPendingRename: $covers.renamingProject, openDestination: open, switchActiveProfile: { _ in },
+                selectedProjectID: $selectedProjectID, projectPendingDeletion: $navigation.covers.deletingProject,
+                projectPendingRename: $navigation.covers.renamingProject, openDestination: open, switchActiveProfile: { _ in },
                 presentProjectCreation: { covers.creatingProject = HermesProjectCreation(folder: "") }
             )
             SessionListRowsSection(
@@ -175,7 +180,7 @@ struct HermesSessionListView: View {
         .task(id: SearchScope(profile: profile, showsAll: viewModel.hermesShowsAllProfiles, text: searchText)) {
             await viewModel.searchSessions(query: searchText)
         }
-        .sheet(item: $covers.renaming, onDismiss: { viewModel.clearRenameError() }) { session in
+        .sheet(item: $navigation.covers.renaming, onDismiss: { viewModel.clearRenameError() }) { session in
             SessionRenameSheet(initialTitle: SessionRowView.displayTitle(for: session), isSaving: viewModel.isRenamingSession,
                                errorMessage: viewModel.renameErrorMessage) {
                 covers.renaming = nil
@@ -184,14 +189,14 @@ struct HermesSessionListView: View {
             }
             .presentationDetents([.medium])
         }
-        .sheet(item: $covers.exported) { item in
+        .sheet(item: $navigation.covers.exported) { item in
             SessionExportShareSheet(fileURL: item.fileURL)
                 .presentationDetents([.medium, .large])
                 .ignoresSafeArea()
                 // Each export has its own temp directory (`SessionListViewModel.export`).
                 .onDisappear { try? FileManager.default.removeItem(at: item.fileURL.deletingLastPathComponent()) }
         }
-        .sheet(item: $covers.creatingProject, onDismiss: {
+        .sheet(item: $navigation.covers.creatingProject, onDismiss: {
             viewModel.clearProjectSheetError()
             covers.moving = covers.movingAfterCreation
             covers.movingAfterCreation = nil
@@ -212,7 +217,7 @@ struct HermesSessionListView: View {
             }
             .presentationDetents([.medium, .large])
         }
-        .sheet(item: $covers.renamingProject, onDismiss: { viewModel.clearProjectSheetError() }) { project in
+        .sheet(item: $navigation.covers.renamingProject, onDismiss: { viewModel.clearProjectSheetError() }) { project in
             ProjectRenameSheet(project: project, isSaving: viewModel.isRenamingProject,
                                errorMessage: viewModel.projectSheetErrorMessage) {
                 covers.renamingProject = nil
@@ -243,7 +248,7 @@ struct HermesSessionListView: View {
                  + String(localized: "Nothing was added. Discard deletes this saved share from Hermex."))
         }
         .modifier(SessionActionConfirmations(
-            viewModel: viewModel, sessionPendingDeletion: $covers.deleting, projectPendingDeletion: $covers.deletingProject,
+            viewModel: viewModel, sessionPendingDeletion: $navigation.covers.deleting, projectPendingDeletion: $navigation.covers.deletingProject,
             deleteSession: { session in Task { await delete(session) } },
             deleteProject: { project in Task { _ = await viewModel.delete(project) } }
         ))
@@ -318,7 +323,7 @@ struct HermesSessionListView: View {
     private var compactSessionRows: some View {
         sessionRows
         // Keyed by the chat, so a Profile picked in an empty chat replaces its screen (#1015).
-        .navigationDestination(item: $covers.chat) { chat in
+        .navigationDestination(item: $navigation.covers.chat) { chat in
             // `/sessions` and `/resume` in the chat come back here, in the chat's Profile, searching
             // what they name.
             ChatView(hermesSession: chat, onReplace: { self.covers.chat = $0 }, onOpenSessions: { opened in
@@ -331,28 +336,28 @@ struct HermesSessionListView: View {
             }, onDraftKeyChange: { covers.identifyChat(chat.id, draftKey: $0) })
             .id(chat.id)
         }
-        .navigationDestination(isPresented: $covers.showingArchived) {
+        .navigationDestination(isPresented: $navigation.covers.showingArchived) {
             if let profile {
                 ArchivedSessionsView(server: entry.server, hermes: .saved(entry.connection, server: entry.server, profile: profile))
             }
         }
-        .navigationDestination(item: $covers.tasks) { entry in
+        .navigationDestination(item: $navigation.covers.tasks) { entry in
             TasksView(server: entry.server, onAPIError: { _ in }, client: entry.client, newTaskProfile: entry.newTaskProfile)
                 .id(entry.id)
         }
-        .navigationDestination(item: $covers.skills) { entry in
+        .navigationDestination(item: $navigation.covers.skills) { entry in
             SkillsView(client: entry.client, profile: entry.client.profile, onAPIError: { _ in })
                 .id(entry.id)
         }
-        .navigationDestination(item: $covers.memory) { entry in
+        .navigationDestination(item: $navigation.covers.memory) { entry in
             MemoryView(server: entry.server, client: entry.client, profile: entry.client.profile, onAPIError: { _ in })
                 .id(entry.id)
         }
-        .navigationDestination(item: $covers.insights) { entry in
+        .navigationDestination(item: $navigation.covers.insights) { entry in
             InsightsView(client: entry.client, profile: entry.client.profile, onAPIError: { _ in })
                 .id(entry.id)
         }
-        .navigationDestination(isPresented: $covers.showingKanban) {
+        .navigationDestination(isPresented: $navigation.covers.showingKanban) {
             KanbanView(server: entry.server, hermes: HermesConnections.shared.connection(for: entry.connection, server: entry.server))
         }
     }
@@ -912,6 +917,17 @@ private struct HermesSessionListChrome<ProfileMenu: View, Filter: View, NewSessi
                     ToolbarItem(placement: .topBarTrailing) { newSession }
                 }
         }
+    }
+}
+
+/// Keeps a list's covers for whoever outlives the list. The Hermes home keeps one per Sessions
+/// side, so its open chat survives what rebuilds the list: a size-class change or the
+/// `[Bots | Sessions]` switch. A list a chat pushed keeps its own.
+@Observable final class HermesSessionListNavigation {
+    var covers: HermesSessionListCovers
+
+    init(_ covers: HermesSessionListCovers = HermesSessionListCovers()) {
+        self.covers = covers
     }
 }
 

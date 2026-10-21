@@ -518,9 +518,9 @@ enum SharedImportGate {
 /// or one navigation stack where compact-width chats push, on either side of the home switch. Each
 /// side leads with the session list's header, whose avatar opens Settings on a tap and switches
 /// servers on a hold, and takes the home's bar (`HermesHomeChrome`). The home keeps both sides'
-/// state, so a switch shows the last roster or rows at once while they refresh. It opens on the
-/// side last shown, Sessions at first, and a Bot link (a push tap, a search hit) turns it to Bots,
-/// where the inbox opens it. A session link (#1176), a Shortcut's new session (#1180) or a share
+/// state, open chat included, so a switch or a size-class change shows the last roster, rows or
+/// chat at once while they refresh. It opens on the side last shown, Sessions at first, and a Bot
+/// link (a push tap, a search hit) turns it to Bots, where the inbox opens it. A session link (#1176), a Shortcut's new session (#1180) or a share
 /// (#1181) turns it to Sessions, where the list opens it.
 struct HermesServerHome: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -579,7 +579,14 @@ struct HermesServerHome: View {
             if HermesHomeLayout.usesSplit(isHome: true, horizontalSizeClass: horizontalSizeClass) {
                 homeContent(home)
                     .sheet(isPresented: $isShowingSettings, onDismiss: readConnection) {
-                        NavigationStack { SettingsView(authManager: authManager, server: server) }
+                        NavigationStack {
+                            SettingsView(authManager: authManager, server: server)
+                                .toolbar {
+                                    ToolbarItem(placement: .confirmationAction) {
+                                        Button("Done") { isShowingSettings = false }
+                                    }
+                                }
+                        }
                     }
             } else {
                 NavigationStack {
@@ -630,6 +637,7 @@ struct HermesServerHome: View {
             // Without a saved connection the inbox's welcome sets one up.
             if tab == .sessions, let sessions {
                 HermesSessionListView(entry: sessions.entry, model: sessions.model, home: home,
+                                      navigation: sessions.navigation,
                                       pendingLink: $pendingSessionDestination, pendingNewChat: $pendingNewChat,
                                       pendingShare: pendingShare, claimShare: claimShare,
                                       didRouteShare: didRouteShare, didDeclineShare: didDeclineShare,
@@ -696,10 +704,11 @@ struct HermesUpdateSignInModifier: ViewModifier {
 }
 
 /// The Hermes home's Sessions side: its list, opening on the server's pick, and the view model
-/// the home keeps across its switch.
+/// and open chat the home keeps across its switch and size-class changes.
 @MainActor private struct HermesSessionsSide {
     let entry: HermesSessionListEntry
     let model: SessionListViewModel
+    let navigation = HermesSessionListNavigation()
 
     init(server: URL, connection: BotConnection) {
         entry = HermesSessionListEntry(server: server, connection: connection, profile: nil)

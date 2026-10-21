@@ -186,6 +186,9 @@ import UIKit
     private var uncertainDeletions: Set<String> = []
     /// Session-only reveal of hidden bots, as in Desktop. Never persisted.
     var showsHidden = false
+    /// The open bot or room. It lives here, not in the inbox view, so the Hermes home's
+    /// chat survives what rebuilds that view: a size-class change or the `[Bots | Sessions]` switch.
+    var selection = BotInboxSelection()
     /// Device-local watermarks for the current connection: the canonical
     /// `last_active` the user last saw for each Profile. Never leaves the phone.
     private(set) var seen: [String: Double] = [:]

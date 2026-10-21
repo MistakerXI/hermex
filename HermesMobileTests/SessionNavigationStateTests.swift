@@ -923,7 +923,7 @@ final class HermesHomeSplitRoutingTests: XCTestCase {
         let auth = AuthManager(keychain: InMemoryKeychainStore(), serverRegistry: .inMemory(),
                                hermesConnections: HermesConnections(keychain: InMemoryKeychainStore()))
         let host = UIHostingController(rootView: HermesSessionListView(entry: entry, model: model,
-            home: home(.sessions), initialCovers: covers).modelContainer(container)
+            home: home(.sessions), navigation: HermesSessionListNavigation(covers)).modelContainer(container)
             .environment(auth).environment(\.horizontalSizeClass, .regular))
         let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
         let window = UIWindow(windowScene: scene)
