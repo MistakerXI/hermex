@@ -92,7 +92,7 @@ import SwiftUI
 
     @ViewBuilder private var navigationSurface: some View {
         if usesSplit {
-            SessionSplitView(rootRevision: rootIdentity.hashValue) {
+            SessionSplitView(rootRevision: inbox.selection.pick.hashValue) {
                 list
                     .navigationSplitViewColumnWidth(min: 260, ideal: 320, max: 420)
             } detail: {
@@ -101,10 +101,6 @@ import SwiftUI
         } else {
             compactList
         }
-    }
-
-    private var rootIdentity: String {
-        inbox.selection.profile?.id ?? inbox.selection.room?.roomID ?? "empty"
     }
 
     @ViewBuilder private var regularWidthDetail: some View {

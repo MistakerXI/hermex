@@ -158,12 +158,16 @@ struct BotInboxSelection {
         didSet {
             if profile != nil { room = nil }
             conversation = nil
+            pick = UUID()
         }
     }
     var room: BotRoomKey? {
-        didSet { if room != nil { profile = nil; conversation = nil } }
+        didSet { if room != nil { profile = nil; conversation = nil }; pick = UUID() }
     }
     var conversation: String?
+    /// New on every pick, the same bot or room again included, so a regular-width detail
+    /// re-roots and pops what it pushed, as a Sessions row does.
+    private(set) var pick = UUID()
 
     @MainActor mutating func open(
         _ destination: BotDestination, connection: BotConnection?, profiles: [BotProfile]
