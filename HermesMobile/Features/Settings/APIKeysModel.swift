@@ -44,6 +44,7 @@ final class APIKeysModel {
     /// starting on the default, then that Profile's keys. A newer read or a Profile switch
     /// supersedes it, so an overlapping refresh never replaces a later result.
     func load() async {
+        if case .failed = state { state = .loading }
         readSerial += 1
         let serial = readSerial
         do {

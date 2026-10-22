@@ -112,10 +112,12 @@ struct HermesEnvKey: Identifiable, Hashable, Sendable {
 
     init(http: HermesConnection) { self.http = http }
 
-    /// The host's Profiles, over `profiles.list`, and the one to start on: the default.
+    /// The host's Profiles, over `profiles.list`, and the one to start on: the default, or the
+    /// first listed when none is marked default.
     func profiles() async throws -> (names: [String], initial: String) {
         let profiles = try await HermesCronClient(http: http).cronProfiles()
-        return (profiles.compactMap(\.name), profiles.first { $0.isDefault == true }?.name ?? "default")
+        let names = profiles.compactMap(\.name)
+        return (names, profiles.first { $0.isDefault == true }?.name ?? names.first ?? "default")
     }
 
     /// Every key the host knows for `profile`, set or not.
