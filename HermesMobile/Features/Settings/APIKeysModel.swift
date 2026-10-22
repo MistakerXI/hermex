@@ -46,7 +46,9 @@ final class APIKeysModel {
             do {
                 let listed = try await client.profiles()
                 profiles = listed.names
-                profile = listed.initial
+                // An overlapping load (a refresh during the first one) may have started the
+                // screen, and the user may have picked a Profile since: keep that choice.
+                if profile == nil { profile = listed.initial }
             } catch {
                 if !Task.isCancelled { state = .failed(error.localizedDescription) }
                 return

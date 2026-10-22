@@ -36,12 +36,7 @@ struct APIKeysView: View {
                 APIKeyPicker(keys: model.keys, profile: profile, model: model) { self.sheet = nil }
             case .edit(let key, let profile):
                 NavigationStack {
-                    APIKeyForm(key: key, profile: profile, model: model) { self.sheet = nil }
-                        .toolbar {
-                            ToolbarItem(placement: .cancellationAction) {
-                                Button("Cancel") { self.sheet = nil }
-                            }
-                        }
+                    APIKeyForm(key: key, profile: profile, model: model, onCancel: { self.sheet = nil }) { self.sheet = nil }
                 }
             }
         }

@@ -2,11 +2,14 @@ import SwiftUI
 
 /// Sets, replaces or removes one key in `profile`'s `.env` (#1318); a nil `key` asks for a custom
 /// key's name too. The value lives only in this view's state: it goes out once in the write's body
-/// and is cleared when the view closes. `onDone` closes the sheet after a write the host accepted.
+/// and is cleared when the view closes. `onCancel`, when the form is a sheet's root, shows Cancel;
+/// `onDone` closes the sheet after a write the host accepted. Neither Cancel nor Back is offered
+/// while a write is in flight, so the sheet never closes under one.
 struct APIKeyForm: View {
     let key: HermesEnvKey?
     let profile: String
     let model: APIKeysModel
+    var onCancel: (() -> Void)?
     let onDone: () -> Void
 
     @State private var customName = ""
@@ -56,7 +59,13 @@ struct APIKeyForm: View {
         .interactiveDismissDisabled(isWriting)
         .navigationTitle(key?.title ?? String(localized: "Custom Key"))
         .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(isWriting)
         .toolbar {
+            if let onCancel {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel", action: onCancel).disabled(isWriting)
+                }
+            }
             ToolbarItem(placement: .confirmationAction) {
                 Button("Save") {
                     write { try await model.save(name, value: trimmedValue, profile: profile) }
