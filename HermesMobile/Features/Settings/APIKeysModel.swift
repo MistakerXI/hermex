@@ -51,7 +51,11 @@ final class APIKeysModel {
             let listed = try await client.profiles()
             guard serial == readSerial else { return }
             profiles = listed.names
-            if profile.map(listed.names.contains) != true { profile = listed.initial }
+            if profile.map(listed.names.contains) != true {
+                // The shown Profile is gone: its keys must not stay tappable under the new one.
+                profile = listed.initial
+                state = .loading
+            }
         } catch {
             if serial == readSerial, !Task.isCancelled { state = .failed(error.localizedDescription) }
             return
