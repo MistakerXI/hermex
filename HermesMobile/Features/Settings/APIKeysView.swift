@@ -107,6 +107,7 @@ struct APIKeysView: View {
                                 }
                             }
                         }
+                        .tint(.primary)
                     }
                 }
             }
