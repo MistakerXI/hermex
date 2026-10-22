@@ -40,19 +40,20 @@ final class APIKeysModel {
         HermesEnvKey.sections(keys.filter(\.isSet))
     }
 
-    /// Reads the Profiles once, starting on the default, then the shown Profile's keys.
+    /// Reads the host's Profiles, keeping the shown one while it still exists and otherwise
+    /// starting on the default, then that Profile's keys. A newer read or a Profile switch
+    /// supersedes it, so an overlapping refresh never replaces a later result.
     func load() async {
-        if profile == nil {
-            do {
-                let listed = try await client.profiles()
-                profiles = listed.names
-                // An overlapping load (a refresh during the first one) may have started the
-                // screen, and the user may have picked a Profile since: keep that choice.
-                if profile == nil { profile = listed.initial }
-            } catch {
-                if !Task.isCancelled { state = .failed(error.localizedDescription) }
-                return
-            }
+        readSerial += 1
+        let serial = readSerial
+        do {
+            let listed = try await client.profiles()
+            guard serial == readSerial else { return }
+            profiles = listed.names
+            if profile.map(listed.names.contains) != true { profile = listed.initial }
+        } catch {
+            if serial == readSerial, !Task.isCancelled { state = .failed(error.localizedDescription) }
+            return
         }
         await loadKeys()
     }
