@@ -1,0 +1,46 @@
+name: unsigned-ipa
+on:
+  workflow_dispatch:
+  push:
+    branches: [dash-adapt-1]
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain
+        run: xcodebuild -version
+      - name: Build unsigned
+        run: |
+          set -o pipefail
+          xcodebuild -project HermesMobile.xcodeproj -scheme HermesMobile \
+            -configuration Release -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build 2>&1 | tail -80
+      - name: Inspect product
+        if: always()
+        run: |
+          APP=$(find build/Build/Products/Release-iphoneos -maxdepth 1 -name "*.app" | head -1)
+          echo "app=$APP"
+          if [ -n "$APP" ]; then
+            ls -la "$APP" | head -25
+            echo "--- embedded bundles ---"
+            find "$APP" -maxdepth 2 -name "*.appex" | head -10
+            find "$APP" -maxdepth 1 -name "Frameworks" | head -3
+          fi
+      - name: Package unsigned IPA
+        if: always()
+        run: |
+          APP=$(find build/Build/Products/Release-iphoneos -maxdepth 1 -name "*.app" | head -1)
+          if [ -z "$APP" ]; then echo "no .app produced"; exit 1; fi
+          rm -rf out && mkdir -p out/Payload && cp -R "$APP" out/Payload/
+          cd out && zip -qry ../hermex-unsigned.ipa Payload && cd ..
+          ls -lh hermex-unsigned.ipa
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: hermex-unsigned-ipa
+          path: hermex-unsigned.ipa
+          if-no-files-found: warn
